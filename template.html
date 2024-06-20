@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commit List</title>
+</head>
+<body>
+    <h1>Commit List</h1>
+    <ul>
+        {{range .Commits}}
+        <li>
+            <strong>Commit:</strong> {{.SHA}}<br>
+            <strong>Author:</strong> {{.Commit.Author}}<br>
+            <strong>Date:</strong> {{.Commit.Author.Date}}<br>
+            <strong>Message:</strong> {{.Commit.Message}}
+            {{ range .Files }}
+            <ul>
+                <li>
+                    <strong>File:</strong> {{.Filename}}<br>
+                    <strong>Changes:</strong> {{.Changes}}<br>
+                    <strong>Additions:</strong> {{.Additions}}<br>
+                    <strong>Deletions:</strong> {{.Deletions}}
+                    <pre>{{ .Patch}}</pre>
+                </li>
+            </ul>
+            {{end}}
+        </li>
+        {{end}}
+    </ul>
+</body>
+</html>

@@ -6,10 +6,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
-	"path/filepath"
+	"text/template"
 
 	"github.com/google/go-github/v62/github"
+	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 	"gopkg.in/yaml.v3"
 )
@@ -28,6 +30,40 @@ type CommitData struct {
 	Commits []*github.RepositoryCommit
 }
 
+type PageData struct {
+	Commits []*github.RepositoryCommit
+}
+
+func generateHTMLReport(commits *CommitData) error {
+	tmpl := template.Must(template.ParseFiles("template.html"))
+	data := struct {
+		Commits []*github.RepositoryCommit
+	}{
+		Commits: commits.Commits,
+	}
+
+	f, err := os.Create("output.html")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	err = tmpl.Execute(f, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func serveReport() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "output.html")
+	})
+	fmt.Println("Serving report at http://localhost:8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
 // fetchCommits fetches commits and their diffs either from local storage or GitHub API
 func fetchCommits(ctx context.Context, client *github.Client, config *Config) (*CommitData, error) {
 	// Check if commits are stored locally
@@ -35,7 +71,7 @@ func fetchCommits(ctx context.Context, client *github.Client, config *Config) (*
 	commitData := &CommitData{}
 
 	commits, err := LoadCommits(localFilename)
-	fmt.Println(">>>>>", commits)
+
 	if err == nil {
 		fmt.Println("Loading commits from local storage")
 		commitData.Commits = commits
@@ -104,13 +140,10 @@ func LoadCommits(filename string) ([]*github.RepositoryCommit, error) {
 	data, err := os.ReadFile(filename)
 
 	if err != nil {
-		fmt.Println("Error reading commits file")
 		return nil, err
 	}
 	var commits []*github.RepositoryCommit
 	err = yaml.Unmarshal(data, &commits)
-	fmt.Println(">>>>> commits", commits)
-	fmt.Println(">>>>> err", err)
 
 	if err != nil {
 		fmt.Println("Error unmarshalling commits")
@@ -120,27 +153,27 @@ func LoadCommits(filename string) ([]*github.RepositoryCommit, error) {
 }
 
 // getLocalFiles recursively gets all files in the given directory, excluding specified folders
-func getLocalFiles(root string, excludeFolders []string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+// func getLocalFiles(root string, excludeFolders []string) ([]string, error) {
+// 	var files []string
+// 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+// 		if err != nil {
+// 			return err
+// 		}
 
-		if info.IsDir() {
-			// Check if the directory should be excluded
-			for _, folder := range excludeFolders {
-				if info.Name() == folder {
-					return filepath.SkipDir
-				}
-			}
-		} else {
-			files = append(files, path)
-		}
-		return nil
-	})
-	return files, err
-}
+// 		if info.IsDir() {
+// 			// Check if the directory should be excluded
+// 			for _, folder := range excludeFolders {
+// 				if info.Name() == folder {
+// 					return filepath.SkipDir
+// 				}
+// 			}
+// 		} else {
+// 			files = append(files, path)
+// 		}
+// 		return nil
+// 	})
+// 	return files, err
+// }
 
 // getChangedFilesFromCommit fetches the files changed in a specific commit
 func getChangedFilesFromCommit(ctx context.Context, client *github.Client, owner, repo, sha string) ([]string, error) {
@@ -203,36 +236,96 @@ func LoadConfig(filename string) (*Config, error) {
 	return &config, nil
 }
 
+var rootCmd = &cobra.Command{
+	Use:   "git-aspirin",
+	Short: "Git Aspirin CLI tool",
+}
+
+var runCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Fetch commits and generate an HTML report",
+	Run: func(cmd *cobra.Command, args []string) {
+		config, err := LoadConfig("config.yaml")
+		if err != nil {
+			log.Fatalf("Error loading configuration: %v", err)
+		}
+
+		ctx := context.Background()
+		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: config.GitHubToken})
+		tc := oauth2.NewClient(ctx, ts)
+		client := github.NewClient(tc)
+
+		commits, err := fetchCommits(ctx, client, config)
+		if err != nil {
+			log.Fatalf("Error fetching commits: %v", err)
+		}
+
+		err = generateHTMLReport(commits)
+		if err != nil {
+			log.Fatalf("Error generating HTML report: %v", err)
+		}
+
+		fmt.Printf("%d new commits have been found.\n", len(commits.Commits))
+		// You may also want to count modified files
+
+		serveReport()
+	},
+}
+
 func main() {
+	rootCmd.AddCommand(runCmd)
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 	// Load the configuration
 	// config, err := LoadConfig("config.yaml")
-	config, err := LoadConfig("config.yaml")
-	if err != nil {
-		log.Fatalf("Error loading configuration: %v", err)
-	}
+	// if err != nil {
+	// 	log.Fatalf("Error loading configuration: %v", err)
+	// }
 
 	// Get the local files
-	localFiles, err := getLocalFiles(config.LocalRepoPath, config.ExcludeFolders)
-	if err != nil {
-		log.Fatalf("Error getting local files: %v", err)
-	}
+	// localFiles, err := getLocalFiles(config.LocalRepoPath, config.ExcludeFolders)
+	// if err != nil {
+	// 	log.Fatalf("Error getting local files: %v", err)
+	// }
 
 	// Set up GitHub client
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: config.GitHubToken},
-	)
-	tc := oauth2.NewClient(ctx, ts)
-	client := github.NewClient(tc)
+	// ctx := context.Background()
+	// ts := oauth2.StaticTokenSource(
+	// 	&oauth2.Token{AccessToken: config.GitHubToken},
+	// )
+	// tc := oauth2.NewClient(ctx, ts)
+	// client := github.NewClient(tc)
 
-	// Fetch the latest commits
-	commitData, err := fetchCommits(ctx, client, config)
-	if err != nil {
-		log.Fatalf("Error fetching commits: %v", err)
-	}
+	// // Fetch the latest commits
+	// commitData, err := fetchCommits(ctx, client, config)
+	// if err != nil {
+	// 	log.Fatalf("Error fetching commits: %v", err)
+	// }
 
 	// // Map to store the latest changed files
-	changedFiles := make(map[string]bool)
+	// changedFiles := make(map[string]bool)
+
+	// Create a new template and parse the HTML file
+	// tmpl := template.Must(template.ParseFiles("template.html"))
+	// // fmt.Println(">>>>>", len(commitData.Commits))
+
+	// // Render the template with the fetched commits
+	// http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	// 	data := PageData{
+	// 		Commits: commitData.Commits,
+	// 	}
+	// 	err := tmpl.Execute(w, data)
+	// 	if err != nil {
+	// 		// http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 		return
+	// 	}
+	// })
+
+	// // Start the HTTP server
+	// fmt.Println("Server started at http://localhost:8080")
+	// log.Fatal(http.ListenAndServe(":8080", nil))
 
 	// Print the commit hash and description
 	// for _, commit := range commits {
@@ -243,24 +336,24 @@ func main() {
 	// }
 
 	// Get changed files from the latest commits
-	for _, commit := range commitData.Commits {
-		files, err := getChangedFilesFromCommit(ctx, client, config.RepoOwner, config.RepoName, commit.GetSHA())
-		if err != nil {
-			log.Fatalf("Error getting changed files from commit: %v", err)
-		}
-		for _, file := range files {
-			changedFiles[file] = true
-		}
-	}
+	// for _, commit := range commitData.Commits {
+	// 	files, err := getChangedFilesFromCommit(ctx, client, config.RepoOwner, config.RepoName, commit.GetSHA())
+	// 	if err != nil {
+	// 		log.Fatalf("Error getting changed files from commit: %v", err)
+	// 	}
+	// 	for _, file := range files {
+	// 		changedFiles[file] = true
+	// 	}
+	// }
 
-	// // Compare changed files with local files
-	fmt.Println("Changed files:")
-	for file := range changedFiles {
-		fmt.Printf("Remote file: %s\n", file)
-	}
+	// // // Compare changed files with local files
+	// fmt.Println("Changed files:")
+	// for file := range changedFiles {
+	// 	fmt.Printf("Remote file: %s\n", file)
+	// }
 
-	fmt.Println("Local files:")
-	for _, file := range localFiles {
-		fmt.Printf("Local file: %s\n", file)
-	}
+	// fmt.Println("Local files:")
+	// for _, file := range localFiles {
+	// 	fmt.Printf("Local file: %s\n", file)
+	// }
 }

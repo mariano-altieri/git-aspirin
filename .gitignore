@@ -3,3 +3,6 @@ config.yaml
 go.mod
 go.sum
 commits.yaml
+
+LICENSE
+git-aspirin
