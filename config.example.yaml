@@ -1,0 +1,8 @@
+github_token: ""
+repo_owner: ""
+repo_name: ""
+local_repo_path: ""
+exclude_folders:
+  - ".git"
+  - "node_modules"
+  - "dist"
