@@ -176,17 +176,17 @@ func LoadCommits(filename string) ([]*github.RepositoryCommit, error) {
 // }
 
 // getChangedFilesFromCommit fetches the files changed in a specific commit
-func getChangedFilesFromCommit(ctx context.Context, client *github.Client, owner, repo, sha string) ([]string, error) {
-	commit, _, err := client.Repositories.GetCommit(ctx, owner, repo, sha, nil)
-	if err != nil {
-		return nil, err
-	}
-	var files []string
-	for _, file := range commit.Files {
-		files = append(files, file.GetFilename())
-	}
-	return files, nil
-}
+// func getChangedFilesFromCommit(ctx context.Context, client *github.Client, owner, repo, sha string) ([]string, error) {
+// 	commit, _, err := client.Repositories.GetCommit(ctx, owner, repo, sha, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	var files []string
+// 	for _, file := range commit.Files {
+// 		files = append(files, file.GetFilename())
+// 	}
+// 	return files, nil
+// }
 
 // fetchCommits fetches commits either from local storage or GitHub API
 // func fetchCommits(ctx context.Context, client *github.Client, config *Config) ([]*github.RepositoryCommit, error) {
