@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/google/go-github/v62/github"
@@ -88,7 +89,6 @@ func FetchCommits(ctx context.Context, client *github.Client, config *Config) (*
 	// Process each commit to fetch the diff (code changes)
 	for _, githubCommit := range githubCommits {
 		commit, _, err := client.Repositories.GetCommit(ctx, config.RepoOwner, config.RepoName, githubCommit.GetSHA(), nil)
-		fmt.Println("GH Commit: ", commit)
 		if err != nil {
 			return nil, err
 		}
@@ -98,6 +98,12 @@ func FetchCommits(ctx context.Context, client *github.Client, config *Config) (*
 
 	// Update the LastRunTimestamp or LastCommitHash in the config
 	commitData.LastRunTimestamp = time.Now().Format(time.RFC3339)
+
+	// Sort commits in descending order by commit date
+	sort.Slice(commitData.Commits, func(i, j int) bool {
+		commitDate := commitData.Commits[i].Commit.Author.GetDate()
+		return commitData.Commits[i].Commit.Author.GetDate().After(commitDate.Time)
+	})
 
 	// Save fetched commits and diffs locally
 	err = SaveCommitData(localFilename, commitData)
