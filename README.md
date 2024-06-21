@@ -41,7 +41,7 @@ go build -o git-aspirin *.go
 
 ### Binary Installation
 
-- Download the latest release from the [Releases]()
+- Download the latest release from the [Releases](https://github.com/mariano-altieri/git-aspirin/releases)
 
 - Rename `config.yaml.example` to `config.yaml` and update it with your GitHub credentials and repository details. Generate a new Personal Access Token [here](https://github.com/settings/developers).
 - If you aim to use `git-aspirin` with a private repo you don't own, send the Personal Access Token to the Repository Owner to add it.
