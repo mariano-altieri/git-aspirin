@@ -4,6 +4,7 @@ import (
 	// "context"
 	// "bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -27,20 +28,22 @@ type Config struct {
 
 // CommitData stores the commit information
 type CommitData struct {
-	Commits []*github.RepositoryCommit
+	Commits   []*github.RepositoryCommit `yaml:"commits"`
+	Completed []string                   `yaml:"completed"`
 }
 
-type PageData struct {
-	Commits []*github.RepositoryCommit
-}
+// type PageData struct {
+// 	Commits   []*github.RepositoryCommit
+// 	Completed []CommitCompleted
+// }
 
 func generateHTMLReport(commits *CommitData) error {
 	tmpl := template.Must(template.ParseFiles("template.html"))
-	data := struct {
-		Commits []*github.RepositoryCommit
-	}{
-		Commits: commits.Commits,
-	}
+	// data := struct {
+	// 	Commits []*github.RepositoryCommit
+	// }{
+	// 	Commits: commits.Commits,
+	// }
 
 	f, err := os.Create("output.html")
 	if err != nil {
@@ -48,7 +51,7 @@ func generateHTMLReport(commits *CommitData) error {
 	}
 	defer f.Close()
 
-	err = tmpl.Execute(f, data)
+	err = tmpl.Execute(f, commits)
 	if err != nil {
 		return err
 	}
@@ -60,6 +63,7 @@ func serveReport() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "output.html")
 	})
+	http.HandleFunc("/resolve", resolveHandler)
 	fmt.Println("Serving report at http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
@@ -74,8 +78,7 @@ func fetchCommits(ctx context.Context, client *github.Client, config *Config) (*
 
 	if err == nil {
 		fmt.Println("Loading commits from local storage")
-		commitData.Commits = commits
-		return commitData, nil
+		return commits, nil
 	}
 
 	// return nil, nil
@@ -109,7 +112,7 @@ func fetchCommits(ctx context.Context, client *github.Client, config *Config) (*
 
 // SaveCommitData saves fetched commits and diffs to a local file
 func SaveCommitData(filename string, commitData *CommitData) error {
-	data, err := yaml.Marshal(commitData.Commits)
+	data, err := yaml.Marshal(commitData)
 	if err != nil {
 		log.Panic("Error marshalling commit data")
 		return err
@@ -136,20 +139,22 @@ func SaveCommitData(filename string, commitData *CommitData) error {
 // }
 
 // LoadCommits loads commits from a local file
-func LoadCommits(filename string) ([]*github.RepositoryCommit, error) {
+func LoadCommits(filename string) (*CommitData, error) {
 	data, err := os.ReadFile(filename)
 
 	if err != nil {
 		return nil, err
 	}
-	var commits []*github.RepositoryCommit
-	err = yaml.Unmarshal(data, &commits)
+
+	var commitData CommitData
+	//var commits []*github.RepositoryCommit
+	err = yaml.Unmarshal(data, &commitData)
 
 	if err != nil {
 		fmt.Println("Error unmarshalling commits")
 		return nil, err
 	}
-	return commits, nil
+	return &commitData, nil
 }
 
 // getLocalFiles recursively gets all files in the given directory, excluding specified folders
@@ -236,6 +241,59 @@ func LoadConfig(filename string) (*Config, error) {
 	return &config, nil
 }
 
+func resolveHandler(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		CommitHash string `json:"commit"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&body)
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if body.CommitHash == "" {
+		http.Error(w, "commit parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	commitData, err := LoadCommits("commits.yaml")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error loading commits: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	found := false
+	for _, completed := range commitData.Completed {
+		if completed == body.CommitHash {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		commitData.Completed = append(commitData.Completed, body.CommitHash)
+	} else {
+		// remove the commit from the completed list
+		var newCompleted []string
+		for _, completed := range commitData.Completed {
+			if completed != body.CommitHash {
+				newCompleted = append(newCompleted, completed)
+			}
+		}
+		commitData.Completed = newCompleted
+	}
+
+	err = SaveCommitData("commits.yaml", commitData)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error saving commits: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// fmt.Fprintf(w, "Commit %s marked as completed\n", body.CommitHash)
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "git-aspirin",
 	Short: "Git Aspirin CLI tool",
@@ -265,7 +323,7 @@ var runCmd = &cobra.Command{
 			log.Fatalf("Error generating HTML report: %v", err)
 		}
 
-		fmt.Printf("%d new commits have been found.\n", len(commits.Commits))
+		// fmt.Printf("%d new commits have been found.\n", len(commits.Commits))
 		// You may also want to count modified files
 
 		serveReport()
