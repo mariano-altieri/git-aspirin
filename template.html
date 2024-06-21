@@ -7,26 +7,41 @@
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <h1>Commit List</h1>
+    <h1>Commits Not Migrated</h1>
     <ul>
         {{range .Commits}}
-        <li>
-            <strong>Commit:</strong> {{.SHA}}<br>
-            <strong>Author:</strong> {{.Commit.Author}}<br>
-            <strong>Date:</strong> {{.Commit.Author.Date}}<br>
-            <strong>Message:</strong> {{.Commit.Message}}
-            {{ range .Files }}
-            <ul>
-                <li>
-                    <strong>File:</strong> {{.Filename}}<br>
-                    <strong>Changes:</strong> {{.Changes}}<br>
-                    <strong>Additions:</strong> {{.Additions}}<br>
-                    <strong>Deletions:</strong> {{.Deletions}}
-                    <pre>{{ .Patch}}</pre>
-                </li>
-            </ul>
+            {{if not ($.IsCompleted .SHA)}}
+            <li>
+                <strong>Commit:</strong> {{.SHA}}<br>
+                <strong>Author:</strong> {{.Commit.Author}}<br>
+                <strong>Date:</strong> {{.Commit.Author.Date}}<br>
+                <strong>Message:</strong> {{.Commit.Message}}
+                {{ range .Files }}
+                <ul>
+                    <li>
+                        <strong>File:</strong> {{.Filename}}<br>
+                        <strong>Changes:</strong> {{.Changes}}<br>
+                        <strong>Additions:</strong> {{.Additions}}<br>
+                        <strong>Deletions:</strong> {{.Deletions}}
+                        <pre>{{ .Patch}}</pre>
+                    </li>
+                </ul>
+                {{end}}
+            </li>
             {{end}}
-        </li>
+        {{end}}
+    </ul>
+    <h1>Migrated Commits</h1>
+    <ul>
+        {{range .Commits}}
+            {{if $.IsCompleted .SHA}}
+            <li>
+                <strong>Commit:</strong> {{.SHA}}<br>
+                <strong>Author:</strong> {{.Commit.Author}}<br>
+                <strong>Date:</strong> {{.Commit.Author.Date}}<br>
+                <strong>Message:</strong> {{.Commit.Message}}
+            </li>
+            {{end}}
         {{end}}
     </ul>
     <script src="/static/scripts.js"></script>

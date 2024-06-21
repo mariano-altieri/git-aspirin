@@ -37,33 +37,47 @@ type CommitData struct {
 // 	Completed []CommitCompleted
 // }
 
-func generateHTMLReport(commits *CommitData) error {
-	tmpl := template.Must(template.ParseFiles("template.html"))
-	// data := struct {
-	// 	Commits []*github.RepositoryCommit
-	// }{
-	// 	Commits: commits.Commits,
-	// }
-
-	f, err := os.Create("output.html")
-	if err != nil {
-		return err
+func (c *CommitData) IsCompleted(sha string) bool {
+	for _, completed := range c.Completed {
+		if completed == sha {
+			return true
+		}
 	}
-	defer f.Close()
-
-	err = tmpl.Execute(f, commits)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return false
 }
+
+// func generateHTMLReport(commits *CommitData) error {
+// 	// tmpl := template.Must(template.New("report").Funcs(template.FuncMap{
+// 	// 	"isCompleted": commits.IsCompleted,
+// 	// }).ParseFiles("template.html"))
+
+// 	// tmpl, err := template.New("report").Funcs(template.FuncMap{
+// 	// 	"isCompleted": commits.IsCompleted,
+// 	// }).ParseFiles("template.html")
+
+// 	// if err != nil {
+// 	// 	return fmt.Errorf("error parsing template: %w", err)
+// 	// }
+
+// 	tmpl := template.Must(template.ParseFiles("template.html"))
+
+// 	f, err := os.Create("output.html")
+// 	if err != nil {
+// 		return fmt.Errorf("error creating output file: %w", err)
+// 	}
+// 	defer f.Close()
+
+// 	err = tmpl.Execute(f, commits)
+// 	if err != nil {
+// 		return fmt.Errorf("error parsing template: %w", err)
+// 	}
+
+// 	return nil
+// }
 
 func serveReport() {
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "output.html")
-	})
+	http.HandleFunc("/", reportHandler)
 	http.HandleFunc("/resolve", resolveHandler)
 	fmt.Println("Serving report at http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
@@ -295,6 +309,22 @@ func resolveHandler(w http.ResponseWriter, r *http.Request) {
 	// fmt.Fprintf(w, "Commit %s marked as completed\n", body.CommitHash)
 }
 
+func reportHandler(w http.ResponseWriter, _ *http.Request) {
+	commitData, err := LoadCommits("commits.yaml")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error loading commits: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	tmpl := template.Must(template.ParseFiles("template.html"))
+
+	err = tmpl.Execute(w, commitData)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error rendering template: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "git-aspirin",
 	Short: "Git Aspirin CLI tool",
@@ -314,18 +344,15 @@ var runCmd = &cobra.Command{
 		tc := oauth2.NewClient(ctx, ts)
 		client := github.NewClient(tc)
 
-		commits, err := fetchCommits(ctx, client, config)
+		_, err = fetchCommits(ctx, client, config)
 		if err != nil {
 			log.Fatalf("Error fetching commits: %v", err)
 		}
 
-		err = generateHTMLReport(commits)
-		if err != nil {
-			log.Fatalf("Error generating HTML report: %v", err)
-		}
-
-		// fmt.Printf("%d new commits have been found.\n", len(commits.Commits))
-		// You may also want to count modified files
+		// err = generateHTMLReport(commits)
+		// if err != nil {
+		// 	log.Fatalf("Error generating HTML report: %v", err)
+		// }
 
 		serveReport()
 	},
