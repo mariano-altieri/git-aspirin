@@ -1,1 +1,2 @@
-console.log('scripts.js loaded');
+// Initiate highlight.js
+hljs.highlightAll();

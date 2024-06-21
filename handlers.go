@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,18 +16,19 @@ func Serve() {
 }
 
 func resolveHandler(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		CommitHash string `json:"commit"`
-	}
-
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&body)
-	if err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+	if r.Method != http.MethodPost {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	if body.CommitHash == "" {
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, "Error parsing form data", http.StatusBadRequest)
+		return
+	}
+
+	commitHash := r.FormValue("commit")
+	if commitHash == "" {
 		http.Error(w, "commit parameter is required", http.StatusBadRequest)
 		return
 	}
@@ -41,19 +41,19 @@ func resolveHandler(w http.ResponseWriter, r *http.Request) {
 
 	found := false
 	for _, completed := range commitData.Completed {
-		if completed == body.CommitHash {
+		if completed == commitHash {
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		commitData.Completed = append(commitData.Completed, body.CommitHash)
+		commitData.Completed = append(commitData.Completed, commitHash)
 	} else {
 		// remove the commit from the completed list
 		var newCompleted []string
 		for _, completed := range commitData.Completed {
-			if completed != body.CommitHash {
+			if completed != commitHash {
 				newCompleted = append(newCompleted, completed)
 			}
 		}
@@ -65,6 +65,9 @@ func resolveHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Error saving commits: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	// Redirect to the report page
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func reportHandler(w http.ResponseWriter, _ *http.Request) {

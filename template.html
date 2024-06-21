@@ -4,46 +4,113 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Git Aspirin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <h1>Commits Not Migrated</h1>
-    <ul>
-        {{range .Commits}}
-            {{if not ($.IsCompleted .SHA)}}
-            <li>
-                <strong>Commit:</strong> {{.SHA}}<br>
-                <strong>Author:</strong> {{.Commit.Author}}<br>
-                <strong>Date:</strong> {{.Commit.Author.Date}}<br>
-                <strong>Message:</strong> {{.Commit.Message}}
-                {{ range .Files }}
-                <ul>
-                    <li>
-                        <strong>File:</strong> {{.Filename}}<br>
-                        <strong>Changes:</strong> {{.Changes}}<br>
-                        <strong>Additions:</strong> {{.Additions}}<br>
-                        <strong>Deletions:</strong> {{.Deletions}}
-                        <pre>{{ .Patch}}</pre>
-                    </li>
-                </ul>
+    <header class="p-4 bg-slate-200 flex items-center justify-center gap-2">
+        <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M3.99057 13.6019C1.33648 10.9478 1.33648 6.64466 3.99057 3.99057C6.64466 1.33648 10.9478 1.33648 13.6019 3.99057L20.0094 10.3981C22.6635 13.0522 22.6635 17.3553 20.0094 20.0094C17.3553 22.6635 13.0522 22.6635 10.3981 20.0094L3.99057 13.6019Z" stroke="#1C274C" stroke-width="1.5"></path> <path d="M16.8057 7.19434C16.8057 7.19434 16.2649 9.99999 13.1322 13.1327C9.99952 16.2653 7.19434 16.8057 7.19434 16.8057" stroke="#1C274C" stroke-width="1.5"></path> </g></svg>
+        <h1 class="roboto-medium text-xl text-black">Git Aspirin</h1>
+    </header>
+    <main class="container mx-auto p-6">
+        <h1 class="text-2xl mb-4 font-bold">New Headaches</h1>
+
+        <div class="space-y-6">
+            {{if ($.AllCompleted)}}
+                <div class="text-center border rounded-md p-3">No new headaches at the moment!</div>
+            {{else}}
+                {{range .Commits}}
+                    {{if not ($.IsCompleted .SHA)}}
+                    <div class="border border-red-200 rounded-md overflow-hidden">
+                        <div class="flex w-full items-center gap-2 bg-red-100 p-3">
+                            <div class="flex-1">
+                                <div class="text-sm">{{.Commit.Author.Name}}</div> 
+                                <a class="line-clamp-1 flex items-center gap-1" href="{{.HTMLURL}}" target="_blank">
+                                    <svg class="w-4 h-4" viewBox="0 0 20 20" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <title>github [#142]</title> <desc>Created with Sketch.</desc> <defs> </defs> <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"> <g id="Dribbble-Light-Preview" transform="translate(-140.000000, -7559.000000)" fill="#000000"> <g id="icons" transform="translate(56.000000, 160.000000)"> <path d="M94,7399 C99.523,7399 104,7403.59 104,7409.253 C104,7413.782 101.138,7417.624 97.167,7418.981 C96.66,7419.082 96.48,7418.762 96.48,7418.489 C96.48,7418.151 96.492,7417.047 96.492,7415.675 C96.492,7414.719 96.172,7414.095 95.813,7413.777 C98.04,7413.523 100.38,7412.656 100.38,7408.718 C100.38,7407.598 99.992,7406.684 99.35,7405.966 C99.454,7405.707 99.797,7404.664 99.252,7403.252 C99.252,7403.252 98.414,7402.977 96.505,7404.303 C95.706,7404.076 94.85,7403.962 94,7403.958 C93.15,7403.962 92.295,7404.076 91.497,7404.303 C89.586,7402.977 88.746,7403.252 88.746,7403.252 C88.203,7404.664 88.546,7405.707 88.649,7405.966 C88.01,7406.684 87.619,7407.598 87.619,7408.718 C87.619,7412.646 89.954,7413.526 92.175,7413.785 C91.889,7414.041 91.63,7414.493 91.54,7415.156 C90.97,7415.418 89.522,7415.871 88.63,7414.304 C88.63,7414.304 88.101,7413.319 87.097,7413.247 C87.097,7413.247 86.122,7413.234 87.029,7413.87 C87.029,7413.87 87.684,7414.185 88.139,7415.37 C88.139,7415.37 88.726,7417.2 91.508,7416.58 C91.513,7417.437 91.522,7418.245 91.522,7418.489 C91.522,7418.76 91.338,7419.077 90.839,7418.982 C86.865,7417.627 84,7413.783 84,7409.253 C84,7403.59 88.478,7399 94,7399" id="github-[#142]"> </path> </g> </g> </g> </g></svg>
+                                    <em class="capitalize underline">{{.Commit.Message}}</em>
+                                </a>
+                                
+                            </div>
+                            <div class="ml-auto flex items-center gap-2">
+                                <div class="text-sm">{{ $.FormatDate .Commit.Author}}</div>
+                                <form action="/resolve" method="post">
+                                    <input type="hidden" name="commit" value="{{.SHA}}">
+                                    <button class="bg-green-500 text-white px-2 py-1 rounded-md w-full">Mark as solved</button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="space-y-4 p-4 text-sm">
+                        {{ range .Files }}
+                            <div class="border rounded-md overflow-hidden">
+                                <div class="bg-slate-800 text-white flex items-center gap-2 p-3">
+                                    <div class="flex-1">{{.Filename}}</div>
+                                    <div class="flex items-center gap-2 ml-auto">
+                                        <div class="text-green-500">+ {{.Additions}}</div>
+                                        <div class="text-red-500">- {{.Deletions}}</div>
+                                        <div>({{.Changes}})</div>
+                                    </div>
+                                </div>
+                                <div class="p-3">
+                                    <pre><code>{{ .Patch | html}}</code></pre>
+                                </div>
+                            </div>
+                        {{end}}
+                        </div>
+                    </div>
+                    {{end}}
                 {{end}}
-            </li>
             {{end}}
-        {{end}}
-    </ul>
-    <h1>Migrated Commits</h1>
-    <ul>
-        {{range .Commits}}
-            {{if $.IsCompleted .SHA}}
-            <li>
-                <strong>Commit:</strong> {{.SHA}}<br>
-                <strong>Author:</strong> {{.Commit.Author}}<br>
-                <strong>Date:</strong> {{.Commit.Author.Date}}<br>
-                <strong>Message:</strong> {{.Commit.Message}}
-            </li>
+        </div>
+        
+        <h1 class="text-2xl my-4 font-bold">Healed Headaches</h1>
+        <div class="space-y-6">
+            {{if .Completed | len | eq 0}}
+                <div class="text-center border rounded-md p-3">No resolved headaches</div>
             {{end}}
-        {{end}}
-    </ul>
+            {{range .Commits}}
+                {{if ($.IsCompleted .SHA)}}
+                <div class="border border-green-200 rounded-md overflow-hidden">
+                    <div class="flex w-full items-center gap-2 bg-green-100 p-3">
+                        <div class="flex-1">
+                            <div class="text-sm">{{.Commit.Author.Name}}</div> 
+                            <a class="line-clamp-1 flex items-center gap-1" href="{{.HTMLURL}}" target="_blank">
+                                <svg class="w-4 h-4" viewBox="0 0 20 20" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <title>github [#142]</title> <desc>Created with Sketch.</desc> <defs> </defs> <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"> <g id="Dribbble-Light-Preview" transform="translate(-140.000000, -7559.000000)" fill="#000000"> <g id="icons" transform="translate(56.000000, 160.000000)"> <path d="M94,7399 C99.523,7399 104,7403.59 104,7409.253 C104,7413.782 101.138,7417.624 97.167,7418.981 C96.66,7419.082 96.48,7418.762 96.48,7418.489 C96.48,7418.151 96.492,7417.047 96.492,7415.675 C96.492,7414.719 96.172,7414.095 95.813,7413.777 C98.04,7413.523 100.38,7412.656 100.38,7408.718 C100.38,7407.598 99.992,7406.684 99.35,7405.966 C99.454,7405.707 99.797,7404.664 99.252,7403.252 C99.252,7403.252 98.414,7402.977 96.505,7404.303 C95.706,7404.076 94.85,7403.962 94,7403.958 C93.15,7403.962 92.295,7404.076 91.497,7404.303 C89.586,7402.977 88.746,7403.252 88.746,7403.252 C88.203,7404.664 88.546,7405.707 88.649,7405.966 C88.01,7406.684 87.619,7407.598 87.619,7408.718 C87.619,7412.646 89.954,7413.526 92.175,7413.785 C91.889,7414.041 91.63,7414.493 91.54,7415.156 C90.97,7415.418 89.522,7415.871 88.63,7414.304 C88.63,7414.304 88.101,7413.319 87.097,7413.247 C87.097,7413.247 86.122,7413.234 87.029,7413.87 C87.029,7413.87 87.684,7414.185 88.139,7415.37 C88.139,7415.37 88.726,7417.2 91.508,7416.58 C91.513,7417.437 91.522,7418.245 91.522,7418.489 C91.522,7418.76 91.338,7419.077 90.839,7418.982 C86.865,7417.627 84,7413.783 84,7409.253 C84,7403.59 88.478,7399 94,7399" id="github-[#142]"> </path> </g> </g> </g> </g></svg>
+                                <em class="capitalize underline">{{.Commit.Message}}</em>
+                            </a>
+                            
+                        </div>
+                        <div class="ml-auto flex items-center gap-2">
+                            <div class="text-sm">{{ $.FormatDate .Commit.Author}}</div>
+                            <form action="/resolve" method="post">
+                                <input type="hidden" name="commit" value="{{.SHA}}">
+                                <button class="bg-red-500 text-white px-2 py-1 rounded-md w-full">Mark as unresolved</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="space-y-4 p-4 text-sm">
+                    {{ range .Files }}
+                        <div class="border rounded-md overflow-hidden">
+                            <div class="bg-slate-800 text-white flex items-center gap-2 p-3">
+                                <div class="flex-1">{{.Filename}}</div>
+                                <div class="flex items-center gap-2 ml-auto">
+                                    <div class="text-green-500">+ {{.Additions}}</div>
+                                    <div class="text-red-500">- {{.Deletions}}</div>
+                                    <div>({{.Changes}})</div>
+                                </div>
+                            </div>
+                            <div class="p-3">
+                                <pre><code>{{ .Patch | html}}</code></pre>
+                            </div>
+                        </div>
+                    {{end}}
+                    </div>
+                </div>
+                {{end}}
+            {{end}}
+        </div>
+    </main>
     <script src="/static/scripts.js"></script>
 </body>
 </html>
